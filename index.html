@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>HandVote — Votación por Cámara</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0d0d1a;
+      --bg2: #13132b;
+      --card: #1a1a35;
+      --border: #2a2a55;
+      --accent: #e94560;
+      --accent2: #4ecdc4;
+      --accent3: #ffd93d;
+      --text: #f0f0f0;
+      --muted: #888;
+      --radius: 16px;
+    }
+    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+
+    /* ── VIEWS ── */
+    .view { display: none; flex-direction: column; height: 100%; }
+    .view.active { display: flex; }
+
+    /* ── HOME ── */
+    #home { padding: 0; }
+    .home-header {
+      background: linear-gradient(135deg, #1a1a35 0%, #0d0d1a 100%);
+      padding: 52px 24px 28px;
+      border-bottom: 1px solid var(--border);
+    }
+    .logo { font-size: 32px; font-weight: 800; color: var(--accent); letter-spacing: -1px; }
+    .logo span { color: var(--text); }
+    .tagline { color: var(--muted); font-size: 14px; margin-top: 4px; }
+    .events-list { flex: 1; overflow-y: auto; padding: 16px; padding-bottom: 100px; }
+    .empty-state { text-align: center; padding: 60px 24px; }
+    .empty-icon { font-size: 56px; margin-bottom: 16px; }
+    .empty-title { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+    .empty-text { color: var(--muted); font-size: 14px; line-height: 1.6; }
+    .event-card {
+      background: var(--card);
+      border-radius: var(--radius);
+      padding: 18px;
+      margin-bottom: 12px;
+      border-left: 4px solid var(--accent);
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      cursor: pointer;
+      transition: transform 0.15s;
+    }
+    .event-card:active { transform: scale(0.98); }
+    .event-info { flex: 1; }
+    .event-name { font-weight: 700; font-size: 16px; }
+    .event-meta { color: var(--muted); font-size: 13px; margin-top: 3px; }
+    .event-arrow { color: var(--accent); font-size: 20px; }
+    .fab {
+      position: fixed; bottom: 28px; left: 20px; right: 20px;
+      background: var(--accent); color: #fff;
+      border: none; border-radius: var(--radius); padding: 17px;
+      font-size: 16px; font-weight: 700; cursor: pointer;
+      box-shadow: 0 8px 30px rgba(233,69,96,0.45);
+      transition: opacity 0.2s;
+    }
+    .fab:active { opacity: 0.85; }
+
+    /* ── CREATE EVENT ── */
+    #create { background: var(--bg); }
+    .top-bar {
+      display: flex; align-items: center; gap: 12px;
+      padding: 52px 20px 16px;
+      background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+    }
+    .back-btn { background: none; border: none; color: var(--accent); font-size: 24px; cursor: pointer; padding: 4px; }
+    .top-bar h2 { font-size: 18px; font-weight: 700; }
+    .create-scroll { flex: 1; overflow-y: auto; padding: 20px; padding-bottom: 120px; }
+    .label { font-size: 12px; font-weight: 600; color: var(--muted); letter-spacing: 0.8px; text-transform: uppercase; margin-bottom: 8px; }
+    .input {
+      width: 100%; background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 14px; font-size: 15px; color: var(--text);
+      margin-bottom: 16px; outline: none;
+    }
+    .input:focus { border-color: var(--accent); }
+    .q-card { background: var(--card); border-radius: var(--radius); padding: 16px; margin-bottom: 14px; border: 1px solid var(--border); }
+    .q-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .q-num { color: var(--accent); font-weight: 700; font-size: 14px; }
+    .remove-btn { background: none; border: none; color: var(--accent); font-size: 20px; cursor: pointer; }
+    .opt-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .opt-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .opt-input {
+      flex: 1; background: #0f3460; border: none; border-radius: 10px;
+      padding: 10px 12px; font-size: 14px; color: var(--text); outline: none;
+    }
+    .add-opt-btn { background: none; border: none; color: var(--accent2); font-size: 14px; font-weight: 600; cursor: pointer; padding: 4px 0; }
+    .add-q-btn {
+      width: 100%; border: 2px dashed var(--accent); border-radius: var(--radius);
+      background: none; color: var(--accent); padding: 14px; font-size: 15px; font-weight: 700;
+      cursor: pointer; margin-bottom: 20px; transition: background 0.2s;
+    }
+    .add-q-btn:active { background: rgba(233,69,96,0.1); }
+    .start-btn {
+      width: 100%; background: var(--accent); color: #fff; border: none;
+      border-radius: var(--radius); padding: 17px; font-size: 17px; font-weight: 700;
+      cursor: pointer; box-shadow: 0 6px 24px rgba(233,69,96,0.4);
+    }
+
+    /* ── CAMERA / VOTING ── */
+    #voting { position: relative; background: #000; }
+    #camera-feed { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
+    #hand-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+    .cam-overlay {
+      position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+      display: flex; flex-direction: column; justify-content: space-between;
+      pointer-events: none;
+    }
+    .cam-top {
+      background: linear-gradient(to bottom, rgba(0,0,0,0.75) 0%, transparent 100%);
+      padding: 52px 20px 24px;
+      pointer-events: none;
+    }
+    .cam-q-badge {
+      display: inline-block; background: var(--accent); color: #fff;
+      border-radius: 20px; padding: 4px 12px; font-size: 12px; font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .cam-question { color: #fff; font-size: 18px; font-weight: 700; line-height: 1.4; }
+    .cam-option-pill {
+      display: inline-flex; align-items: center; gap: 8px;
+      border-radius: 12px; padding: 10px 16px;
+      margin: 10px 20px 0; pointer-events: none;
+      font-weight: 700; font-size: 15px; color: #fff;
+    }
+    .cam-bottom {
+      background: linear-gradient(to top, rgba(0,0,0,0.88) 0%, transparent 100%);
+      padding: 20px 20px 48px;
+      pointer-events: all;
+    }
+    .hand-count-display {
+      text-align: center; margin-bottom: 18px;
+    }
+    .hand-count-num { font-size: 72px; font-weight: 800; color: #fff; line-height: 1; }
+    .hand-count-label { color: rgba(255,255,255,0.7); font-size: 14px; margin-top: 4px; }
+    .cam-instr { color: rgba(255,255,255,0.8); text-align: center; font-size: 14px; margin-bottom: 18px; line-height: 1.5; }
+    .cam-btn-row { display: flex; gap: 10px; }
+    .cam-confirm-btn {
+      flex: 1; border: none; border-radius: var(--radius); padding: 16px;
+      font-size: 16px; font-weight: 700; color: #fff; cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .cam-confirm-btn:active { opacity: 0.8; }
+    .cam-skip-btn {
+      background: rgba(255,255,255,0.15); border: none; border-radius: var(--radius);
+      padding: 16px 18px; font-size: 14px; color: #fff; cursor: pointer;
+    }
+    .adjust-row { display: flex; align-items: center; justify-content: center; gap: 20px; margin-bottom: 16px; }
+    .adj-btn {
+      width: 48px; height: 48px; border-radius: 14px; border: 2px solid var(--accent);
+      background: rgba(0,0,0,0.5); color: var(--accent); font-size: 28px; font-weight: 700;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+    }
+
+    /* ── RESULTS ── */
+    #results { background: var(--bg); }
+    .results-scroll { flex: 1; overflow-y: auto; padding: 16px; padding-bottom: 120px; }
+    .ev-header-card {
+      background: linear-gradient(135deg, var(--card), var(--bg2));
+      border-radius: var(--radius); padding: 20px; margin-bottom: 16px;
+      border-left: 4px solid var(--accent);
+    }
+    .ev-title { font-size: 22px; font-weight: 800; }
+    .ev-date { color: var(--muted); font-size: 13px; margin-top: 4px; }
+    .stats-row { display: flex; gap: 10px; margin-top: 14px; }
+    .stat-box { flex: 1; background: rgba(255,255,255,0.05); border-radius: 12px; padding: 12px; text-align: center; }
+    .stat-n { font-size: 26px; font-weight: 800; color: var(--accent); }
+    .stat-l { color: var(--muted); font-size: 11px; margin-top: 2px; }
+    .q-result-card { background: var(--card); border-radius: var(--radius); padding: 18px; margin-bottom: 14px; }
+    .q-result-num { color: var(--accent); font-size: 12px; font-weight: 700; margin-bottom: 6px; }
+    .q-result-text { font-size: 16px; font-weight: 700; margin-bottom: 16px; line-height: 1.4; }
+    .opt-result { margin-bottom: 12px; }
+    .opt-result-label { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+    .opt-name { font-size: 14px; }
+    .opt-pct { font-weight: 700; font-size: 16px; }
+    .bar-bg { height: 8px; background: rgba(255,255,255,0.08); border-radius: 4px; overflow: hidden; }
+    .bar-fill { height: 8px; border-radius: 4px; transition: width 0.6s ease; }
+    .q-total { color: var(--muted); font-size: 12px; text-align: right; margin-top: 8px; }
+    .results-footer {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: var(--bg2); border-top: 1px solid var(--border);
+      padding: 14px 20px 36px; display: flex; flex-direction: column; gap: 10px;
+    }
+    .export-btn {
+      background: var(--accent); color: #fff; border: none;
+      border-radius: var(--radius); padding: 16px; font-size: 16px; font-weight: 700;
+      cursor: pointer; box-shadow: 0 6px 20px rgba(233,69,96,0.4);
+    }
+    .home-btn {
+      background: #0f3460; color: #fff; border: none;
+      border-radius: var(--radius); padding: 14px; font-size: 15px; font-weight: 600;
+      cursor: pointer;
+    }
+
+    /* ── Loading overlay ── */
+    #loading-overlay {
+      position: fixed; inset: 0; background: rgba(13,13,26,0.9);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      z-index: 1000; gap: 16px;
+    }
+    #loading-overlay.hidden { display: none; }
+    .spinner {
+      width: 48px; height: 48px; border: 4px solid rgba(233,69,96,0.2);
+      border-top-color: var(--accent); border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text { color: var(--text); font-size: 15px; font-weight: 600; }
+    .loading-sub { color: var(--muted); font-size: 13px; }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%);
+      background: #222; color: #fff; padding: 10px 20px;
+      border-radius: 30px; font-size: 14px; font-weight: 600;
+      opacity: 0; transition: opacity 0.3s; pointer-events: none; white-space: nowrap; z-index: 999;
+    }
+    #toast.show { opacity: 1; }
+
+    /* Misc */
+    .section-gap { margin-top: 20px; }
+  </style>
+</head>
+<body>
+
+<!-- Loading overlay -->
+<div id="loading-overlay">
+  <div class="spinner"></div>
+  <div class="loading-text">Cargando detector de manos...</div>
+  <div class="loading-sub">MediaPipe Hands · TensorFlow.js</div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- ═══════════════ HOME ═══════════════ -->
+<div id="home" class="view active">
+  <div class="home-header">
+    <div class="logo">Hand<span>Vote</span></div>
+    <div class="tagline">Captura votos de tu audiencia sin celulares</div>
+  </div>
+  <div class="events-list" id="events-list">
+    <div class="empty-state" id="empty-state">
+      <div class="empty-icon">🎤</div>
+      <div class="empty-title">Sin eventos aún</div>
+      <div class="empty-text">Crea tu primer evento para empezar a capturar votos de tu audiencia levantando la mano.</div>
+    </div>
+  </div>
+  <button class="fab" onclick="showView('create'); initCreateForm()">+ Nuevo Evento</button>
+</div>
+
+<!-- ═══════════════ CREATE EVENT ═══════════════ -->
+<div id="create" class="view">
+  <div class="top-bar">
+    <button class="back-btn" onclick="showView('home')">‹</button>
+    <h2>Nuevo Evento</h2>
+  </div>
+  <div class="create-scroll">
+    <div class="label">Nombre del Evento</div>
+    <input class="input" id="ev-name" placeholder="Ej: Asamblea General 2026" />
+    <div class="label">Fecha</div>
+    <input class="input" id="ev-date" placeholder="DD/MM/AAAA" />
+    <div class="label section-gap">Preguntas</div>
+    <div id="questions-container"></div>
+    <button class="add-q-btn" onclick="addQuestion()">+ Agregar pregunta</button>
+    <button class="start-btn" onclick="startEvent()">🎤 Iniciar Evento</button>
+  </div>
+</div>
+
+<!-- ═══════════════ VOTING / CAMERA ═══════════════ -->
+<div id="voting" class="view">
+  <video id="camera-feed" autoplay playsinline muted></video>
+  <canvas id="hand-canvas"></canvas>
+  <div class="cam-overlay">
+    <div class="cam-top">
+      <div class="cam-q-badge" id="cam-q-badge">Pregunta 1/1</div>
+      <div class="cam-question" id="cam-question">–</div>
+    </div>
+    <div id="cam-option-pill" class="cam-option-pill"></div>
+    <div class="cam-bottom">
+      <div class="hand-count-display">
+        <div class="hand-count-num" id="hand-count">0</div>
+        <div class="hand-count-label">manos detectadas</div>
+      </div>
+      <div class="adjust-row">
+        <button class="adj-btn" onclick="adjustManual(-1)">−</button>
+        <div style="color:rgba(255,255,255,0.5);font-size:13px;">ajuste manual</div>
+        <button class="adj-btn" onclick="adjustManual(1)">+</button>
+      </div>
+      <div class="cam-instr" id="cam-instr">Pide que levanten la mano quienes eligen esta opción</div>
+      <div class="cam-btn-row">
+        <button class="cam-confirm-btn" id="cam-confirm-btn" onclick="confirmVote()">✅ Guardar votos</button>
+        <button class="cam-skip-btn" onclick="skipOption()">Omitir</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ RESULTS ═══════════════ -->
+<div id="results" class="view">
+  <div class="top-bar">
+    <button class="back-btn" onclick="showView('home'); loadHomeEvents()">‹</button>
+    <h2>Resultados</h2>
+  </div>
+  <div class="results-scroll" id="results-content"></div>
+  <div class="results-footer">
+    <button class="export-btn" onclick="exportExcel()">📤 Exportar a Excel</button>
+    <button class="home-btn" onclick="showView('home'); loadHomeEvents()">🏠 Volver al inicio</button>
+  </div>
+</div>
+
+<!-- ── SCRIPTS ── -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/hand-pose-detection"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<script>
+// ════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════
+const COLORS = ['#e94560','#4ecdc4','#ffd93d','#ff6b6b','#a8e6cf','#6bceff','#ff9ff3','#0f3460'];
+let currentEvent = null;
+let currentQIdx = 0;
+let currentOptIdx = 0;
+let currentVotes = [];   // votes per option for current question
+let allEvents = [];
+let detector = null;
+let stream = null;
+let detectionLoop = null;
+let manualOffset = 0;
+let rawHandCount = 0;
+
+// ════════════════════════════════════════════
+// STORAGE
+// ════════════════════════════════════════════
+function saveEvents() {
+  localStorage.setItem('handvote_events', JSON.stringify(allEvents));
+}
+function loadEvents() {
+  try { allEvents = JSON.parse(localStorage.getItem('handvote_events') || '[]'); }
+  catch { allEvents = []; }
+}
+
+// ════════════════════════════════════════════
+// NAVIGATION
+// ════════════════════════════════════════════
+function showView(id) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+// ════════════════════════════════════════════
+// HOME
+// ════════════════════════════════════════════
+function loadHomeEvents() {
+  loadEvents();
+  const container = document.getElementById('events-list');
+  const empty = document.getElementById('empty-state');
+  // Remove old cards
+  container.querySelectorAll('.event-card').forEach(c => c.remove());
+
+  if (allEvents.length === 0) {
+    empty.style.display = '';
+    return;
+  }
+  empty.style.display = 'none';
+  const sorted = [...allEvents].reverse();
+  sorted.forEach(ev => {
+    const totalVotes = ev.questions.reduce((s, q) => s + q.votes.reduce((a,b)=>a+b,0), 0);
+    const card = document.createElement('div');
+    card.className = 'event-card';
+    card.innerHTML = `
+      <div class="event-info">
+        <div class="event-name">${ev.name}</div>
+        <div class="event-meta">📅 ${ev.date} · ${ev.questions.length} preguntas · ${totalVotes} votos</div>
+      </div>
+      <div class="event-arrow">›</div>`;
+    card.addEventListener('click', () => openResults(ev.id));
+    container.appendChild(card);
+  });
+}
+
+// ════════════════════════════════════════════
+// CREATE EVENT
+// ════════════════════════════════════════════
+let questionCount = 0;
+function initCreateForm() {
+  document.getElementById('ev-name').value = '';
+  document.getElementById('ev-date').value = new Date().toLocaleDateString('es-CO');
+  document.getElementById('questions-container').innerHTML = '';
+  questionCount = 0;
+  addQuestion();
+}
+
+function addQuestion() {
+  questionCount++;
+  const qid = 'q' + Date.now() + questionCount;
+  const container = document.getElementById('questions-container');
+  const div = document.createElement('div');
+  div.className = 'q-card';
+  div.id = qid;
+  div.innerHTML = `
+    <div class="q-header">
+      <span class="q-num">Pregunta ${questionCount}</span>
+      <button class="remove-btn" onclick="removeQuestion('${qid}')">✕</button>
+    </div>
+    <input class="input" placeholder="Escribe la pregunta..." style="margin-bottom: 12px;" />
+    <div class="label">Opciones</div>
+    <div class="opts-container">
+      ${makeOptionRow(0, 'Sí')}
+      ${makeOptionRow(1, 'No')}
+      ${makeOptionRow(2, 'Abstención')}
+    </div>
+    <button class="add-opt-btn" onclick="addOption(this)">+ Agregar opción</button>
+  `;
+  container.appendChild(div);
+}
+
+function makeOptionRow(idx, value='') {
+  const color = COLORS[idx % COLORS.length];
+  return `<div class="opt-row">
+    <div class="opt-dot" style="background:${color}"></div>
+    <input class="opt-input" placeholder="Opción ${idx+1}" value="${value}" />
+    <button class="remove-btn" onclick="this.closest('.opt-row').remove()" style="font-size:16px;">✕</button>
+  </div>`;
+}
+
+function addOption(btn) {
+  const container = btn.previousElementSibling;
+  const idx = container.querySelectorAll('.opt-row').length;
+  if (idx >= 8) { showToast('Máximo 8 opciones'); return; }
+  container.insertAdjacentHTML('beforeend', makeOptionRow(idx));
+}
+
+function removeQuestion(qid) {
+  const cards = document.querySelectorAll('.q-card');
+  if (cards.length <= 1) { showToast('Debe haber al menos una pregunta'); return; }
+  document.getElementById(qid).remove();
+}
+
+function getFormData() {
+  const name = document.getElementById('ev-name').value.trim();
+  const date = document.getElementById('ev-date').value.trim();
+  const qCards = document.querySelectorAll('.q-card');
+  const questions = [];
+  for (const card of qCards) {
+    const text = card.querySelector('input').value.trim();
+    const opts = [...card.querySelectorAll('.opt-input')].map(i => i.value.trim());
+    if (!text) return null;
+    if (opts.some(o => !o)) return null;
+    questions.push({ id: 'q'+Math.random(), text, options: opts, votes: opts.map(_=>0) });
+  }
+  if (!name || questions.length === 0) return null;
+  return { id: 'ev'+Date.now(), name, date, questions };
+}
+
+function startEvent() {
+  const ev = getFormData();
+  if (!ev) { showToast('Completa todos los campos'); return; }
+  loadEvents();
+  allEvents.push(ev);
+  saveEvents();
+  currentEvent = ev;
+  currentQIdx = 0;
+  currentOptIdx = 0;
+  currentVotes = new Array(ev.questions[0].options.length).fill(0);
+  openCamera();
+}
+
+// ════════════════════════════════════════════
+// CAMERA + HAND DETECTION
+// ════════════════════════════════════════════
+async function openCamera() {
+  showView('voting');
+  updateCamUI();
+
+  // Request camera
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
+      audio: false
+    });
+    const video = document.getElementById('camera-feed');
+    video.srcObject = stream;
+    await new Promise(r => video.onloadedmetadata = r);
+    video.play();
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+  } catch(e) {
+    showToast('Error: no se puede acceder a la cámara');
+    return;
+  }
+
+  // Start detection loop
+  startDetectionLoop();
+}
+
+function resizeCanvas() {
+  const video = document.getElementById('camera-feed');
+  const canvas = document.getElementById('hand-canvas');
+  canvas.width = video.videoWidth || window.innerWidth;
+  canvas.height = video.videoHeight || window.innerHeight;
+}
+
+function stopCamera() {
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  if (detectionLoop) { cancelAnimationFrame(detectionLoop); detectionLoop = null; }
+  window.removeEventListener('resize', resizeCanvas);
+}
+
+function startDetectionLoop() {
+  const video = document.getElementById('camera-feed');
+  const canvas = document.getElementById('hand-canvas');
+  const ctx = canvas.getContext('2d');
+
+  async function loop() {
+    if (!stream) return;
+    if (detector && video.readyState >= 2) {
+      try {
+        const hands = await detector.estimateHands(video, { flipHorizontal: false });
+        rawHandCount = hands.length;
+        const displayCount = Math.max(0, rawHandCount + manualOffset);
+        document.getElementById('hand-count').textContent = displayCount;
+        drawHands(ctx, canvas, hands);
+      } catch(e) { /* skip frame */ }
+    }
+    detectionLoop = requestAnimationFrame(loop);
+  }
+  loop();
+}
+
+function drawHands(ctx, canvas, hands) {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const vw = document.getElementById('camera-feed').videoWidth;
+  const vh = document.getElementById('camera-feed').videoHeight;
+  if (!vw || !vh) return;
+
+  const scaleX = canvas.width / vw;
+  const scaleY = canvas.height / vh;
+
+  hands.forEach((hand, i) => {
+    const color = COLORS[i % COLORS.length];
+    // Draw wrist circle
+    const wrist = hand.keypoints[0];
+    ctx.beginPath();
+    ctx.arc(wrist.x * scaleX, wrist.y * scaleY, 14, 0, Math.PI * 2);
+    ctx.fillStyle = color + 'cc';
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Draw landmark dots
+    hand.keypoints.forEach(kp => {
+      ctx.beginPath();
+      ctx.arc(kp.x * scaleX, kp.y * scaleY, 4, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+    });
+
+    // Count label
+    ctx.font = 'bold 20px sans-serif';
+    ctx.fillStyle = '#fff';
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 3;
+    const txt = `✋ ${i+1}`;
+    ctx.strokeText(txt, wrist.x * scaleX - 10, wrist.y * scaleY - 22);
+    ctx.fillText(txt, wrist.x * scaleX - 10, wrist.y * scaleY - 22);
+  });
+}
+
+// ════════════════════════════════════════════
+// VOTING FLOW
+// ════════════════════════════════════════════
+function updateCamUI() {
+  if (!currentEvent) return;
+  const q = currentEvent.questions[currentQIdx];
+  manualOffset = 0;
+
+  document.getElementById('cam-q-badge').textContent =
+    `Pregunta ${currentQIdx+1}/${currentEvent.questions.length}`;
+  document.getElementById('cam-question').textContent = q.text;
+
+  const opt = q.options[currentOptIdx];
+  const color = COLORS[currentOptIdx % COLORS.length];
+  const pill = document.getElementById('cam-option-pill');
+  pill.style.background = color + 'cc';
+  pill.innerHTML = `<span>✋</span> <span>${opt}</span> <span style="opacity:0.7;font-size:13px;">${currentOptIdx+1}/${q.options.length}</span>`;
+
+  const btn = document.getElementById('cam-confirm-btn');
+  btn.style.background = color;
+  btn.textContent = `✅ Guardar votos para "${opt}"`;
+
+  document.getElementById('hand-count').textContent = '0';
+}
+
+function adjustManual(delta) {
+  manualOffset += delta;
+  const displayCount = Math.max(0, rawHandCount + manualOffset);
+  document.getElementById('hand-count').textContent = displayCount;
+}
+
+function confirmVote() {
+  const count = parseInt(document.getElementById('hand-count').textContent) || 0;
+  currentVotes[currentOptIdx] = count;
+  showToast(`${count} votos guardados ✓`);
+
+  const q = currentEvent.questions[currentQIdx];
+
+  if (currentOptIdx < q.options.length - 1) {
+    currentOptIdx++;
+    manualOffset = 0;
+    updateCamUI();
+  } else {
+    // All options done for this question — save
+    saveCurrentQuestion();
+  }
+}
+
+function skipOption() {
+  currentVotes[currentOptIdx] = 0;
+  const q = currentEvent.questions[currentQIdx];
+  if (currentOptIdx < q.options.length - 1) {
+    currentOptIdx++;
+    manualOffset = 0;
+    updateCamUI();
+  } else {
+    saveCurrentQuestion();
+  }
+}
+
+function saveCurrentQuestion() {
+  // Persist votes to event
+  const evIdx = allEvents.findIndex(e => e.id === currentEvent.id);
+  if (evIdx >= 0) {
+    allEvents[evIdx].questions[currentQIdx].votes = [...currentVotes];
+    currentEvent = allEvents[evIdx];
+    saveEvents();
+  }
+
+  if (currentQIdx < currentEvent.questions.length - 1) {
+    // Next question
+    currentQIdx++;
+    currentOptIdx = 0;
+    currentVotes = new Array(currentEvent.questions[currentQIdx].options.length).fill(0);
+    updateCamUI();
+    showToast('✅ Pregunta guardada — siguiente');
+  } else {
+    // All done
+    stopCamera();
+    openResults(currentEvent.id);
+  }
+}
+
+// ════════════════════════════════════════════
+// RESULTS
+// ════════════════════════════════════════════
+function openResults(eventId) {
+  loadEvents();
+  const ev = allEvents.find(e => e.id === eventId);
+  if (!ev) return;
+  currentEvent = ev;
+
+  const totalVotes = ev.questions.reduce((s, q) => s + q.votes.reduce((a,b)=>a+b,0), 0);
+  const content = document.getElementById('results-content');
+  content.innerHTML = `
+    <div class="ev-header-card">
+      <div class="ev-title">${ev.name}</div>
+      <div class="ev-date">📅 ${ev.date}</div>
+      <div class="stats-row">
+        <div class="stat-box"><div class="stat-n">${ev.questions.length}</div><div class="stat-l">Preguntas</div></div>
+        <div class="stat-box"><div class="stat-n">${totalVotes}</div><div class="stat-l">Votos totales</div></div>
+      </div>
+    </div>
+    ${ev.questions.map((q, qi) => {
+      const total = q.votes.reduce((a,b)=>a+b, 0);
+      const maxV = Math.max(...q.votes, 1);
+      return `
+        <div class="q-result-card">
+          <div class="q-result-num">PREGUNTA ${qi+1}</div>
+          <div class="q-result-text">${q.text}</div>
+          ${q.options.map((opt, oi) => {
+            const v = q.votes[oi] || 0;
+            const pct = total > 0 ? Math.round(v/total*100) : 0;
+            const barW = total > 0 ? Math.round(v/maxV*100) : 0;
+            const color = COLORS[oi % COLORS.length];
+            return `
+              <div class="opt-result">
+                <div class="opt-result-label">
+                  <span class="opt-name" style="display:flex;align-items:center;gap:8px;">
+                    <span style="width:10px;height:10px;border-radius:50%;background:${color};display:inline-block"></span>
+                    ${opt}
+                  </span>
+                  <span><span style="color:var(--muted);font-size:13px;">${v} votos</span>&nbsp;&nbsp;<span class="opt-pct" style="color:${color}">${pct}%</span></span>
+                </div>
+                <div class="bar-bg"><div class="bar-fill" style="width:${barW}%;background:${color}"></div></div>
+              </div>`;
+          }).join('')}
+          <div class="q-total">Total: ${total} votos</div>
+        </div>`;
+    }).join('')}
+  `;
+  showView('results');
+}
+
+// ════════════════════════════════════════════
+// EXCEL EXPORT
+// ════════════════════════════════════════════
+function exportExcel() {
+  if (!currentEvent) return;
+  const wb = XLSX.utils.book_new();
+
+  // Sheet: Info
+  const info = [['Evento', currentEvent.name], ['Fecha', currentEvent.date], ['Preguntas', currentEvent.questions.length]];
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(info), 'Info');
+
+  // One sheet per question
+  currentEvent.questions.forEach((q, qi) => {
+    const rows = [['Opción', 'Votos', 'Porcentaje']];
+    const total = q.votes.reduce((a,b)=>a+b, 0);
+    q.options.forEach((opt, oi) => {
+      const v = q.votes[oi] || 0;
+      const pct = total > 0 ? (v/total*100).toFixed(1)+'%' : '0%';
+      rows.push([opt, v, pct]);
+    });
+    rows.push(['TOTAL', total, '100%']);
+    const safeName = `P${qi+1}-${q.text}`.replace(/[\\/*?:\[\]]/g, '').substring(0, 31);
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), safeName);
+  });
+
+  XLSX.writeFile(wb, `HandVote_${currentEvent.name.replace(/[^a-zA-Z0-9]/g,'_')}_${Date.now()}.xlsx`);
+  showToast('Excel descargado ✓');
+}
+
+// ════════════════════════════════════════════
+// UTILS
+// ════════════════════════════════════════════
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ════════════════════════════════════════════
+// INIT — Load MediaPipe model
+// ════════════════════════════════════════════
+async function init() {
+  loadHomeEvents();
+  const overlay = document.getElementById('loading-overlay');
+  try {
+    await tf.setBackend('webgl');
+    await tf.ready();
+    const model = handPoseDetection.SupportedModels.MediaPipeHands;
+    const config = {
+      runtime: 'tfjs',
+      modelType: 'full',
+      maxHands: 20,
+    };
+    detector = await handPoseDetection.createDetector(model, config);
+    overlay.classList.add('hidden');
+  } catch(e) {
+    overlay.querySelector('.loading-text').textContent = '⚠️ Error al cargar el detector';
+    overlay.querySelector('.loading-sub').textContent = e.message;
+    console.error(e);
+  }
+}
+
+init();
+</script>
+</body>
+</html>
