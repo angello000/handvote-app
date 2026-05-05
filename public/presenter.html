@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>HandVote — Presentador</title>
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    :root{--bg:#0d0d1a;--card:#1a1a35;--border:#2a2a55;--accent:#e94560;--teal:#4ecdc4;--yellow:#ffd93d;--text:#f0f0f0;--muted:#888;--r:14px}
+    body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh;padding:20px}
+    h1{font-size:26px;font-weight:800;color:var(--accent);margin-bottom:4px}
+    .subtitle{color:var(--muted);font-size:13px;margin-bottom:24px}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    @media(max-width:700px){.grid{grid-template-columns:1fr}}
+    .card{background:var(--card);border-radius:var(--r);padding:20px;border:1px solid var(--border)}
+    .card h2{font-size:14px;font-weight:700;color:var(--teal);text-transform:uppercase;letter-spacing:.8px;margin-bottom:14px}
+    label{font-size:12px;color:var(--muted);display:block;margin-bottom:5px;margin-top:12px}
+    input,textarea{width:100%;background:#0d0d1a;border:1px solid var(--border);border-radius:10px;padding:11px;font-size:14px;color:var(--text);outline:none;resize:none;font-family:inherit}
+    input:focus,textarea:focus{border-color:var(--accent)}
+    .q-list{margin-bottom:14px;max-height:200px;overflow-y:auto}
+    .q-item{background:#0d0d1a;border-radius:10px;padding:10px 14px;margin-bottom:8px;font-size:14px;display:flex;align-items:center;gap:10px;border:1px solid var(--border)}
+    .q-num{color:var(--accent);font-weight:800;min-width:24px}
+    .q-del{margin-left:auto;background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:2px 6px}
+    .q-del:hover{color:var(--accent)}
+    .btn{border:none;border-radius:10px;padding:12px 20px;font-size:14px;font-weight:700;cursor:pointer;transition:opacity .15s}
+    .btn:active{opacity:.8}
+    .btn-accent{background:var(--accent);color:#fff;width:100%;margin-top:12px}
+    .btn-teal{background:var(--teal);color:#000;width:100%;margin-top:8px}
+    .btn-yellow{background:var(--yellow);color:#000;width:100%;margin-top:8px;display:none}
+    .autoclose-indicator{background:rgba(78,205,196,.08);border:1px solid rgba(78,205,196,.25);border-radius:10px;padding:10px 14px;margin-top:8px;display:none;align-items:center;gap:10px;font-size:13px}
+    .autoclose-bar-track{flex:1;height:6px;background:rgba(255,255,255,.1);border-radius:3px;overflow:hidden}
+    .autoclose-bar-fill{height:100%;background:var(--teal);border-radius:3px;transition:width 1s linear}
+    .autoclose-num{font-weight:800;color:var(--teal);min-width:24px;text-align:right}
+    .btn-outline{background:none;border:1px solid var(--border);color:var(--muted);width:100%;margin-top:8px}
+    .btn-sm{padding:8px 16px;font-size:13px;width:auto;margin-top:0}
+    .btn-add{background:var(--card);border:1px dashed var(--border);color:var(--muted);width:100%;padding:10px;border-radius:10px;cursor:pointer;font-size:13px;margin-bottom:12px}
+    .btn-add:hover{border-color:var(--teal);color:var(--teal)}
+    #qr-box{display:flex;justify-content:center;align-items:center;background:#fff;border-radius:12px;padding:12px;min-height:170px}
+    .stat-row{display:flex;gap:10px;margin-bottom:14px}
+    .stat{flex:1;background:#0d0d1a;border-radius:10px;padding:12px;text-align:center}
+    .stat-n{font-size:28px;font-weight:800;color:var(--accent)}
+    .stat-l{font-size:11px;color:var(--muted);margin-top:2px}
+    .current-q{background:#0d0d1a;border-radius:10px;padding:14px;margin-bottom:14px;font-weight:700;font-size:15px;min-height:50px;border-left:4px solid var(--accent)}
+    .vote-bars{display:flex;flex-direction:column;gap:10px}
+    .vbar-row{display:flex;align-items:center;gap:10px}
+    .vbar-label{font-size:13px;min-width:80px}
+    .vbar-track{flex:1;height:12px;background:rgba(255,255,255,.07);border-radius:6px;overflow:hidden}
+    .vbar-fill{height:100%;border-radius:6px;transition:width .4s ease}
+    .vbar-count{font-size:13px;font-weight:700;min-width:30px;text-align:right}
+    .badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700}
+    .badge-green{background:rgba(78,205,196,.2);color:var(--teal)}
+    .badge-red{background:rgba(233,69,96,.2);color:var(--accent)}
+    .status-bar{display:flex;align-items:center;gap:8px;margin-bottom:16px;padding:10px 14px;background:var(--card);border-radius:10px;font-size:13px}
+    .dot{width:8px;height:8px;border-radius:50%;background:#555}
+    .dot.connected{background:#4ecdc4;box-shadow:0 0 6px #4ecdc466}
+    #phase-controls{display:flex;flex-direction:column;gap:0}
+    .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#222;color:#fff;padding:10px 20px;border-radius:30px;font-size:13px;font-weight:600;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap;z-index:999}
+    .toast.show{opacity:1}
+  </style>
+</head>
+<body>
+<h1>🗳️ HandVote</h1>
+<div class="subtitle">Panel del Presentador</div>
+
+<div class="status-bar">
+  <div class="dot" id="dot"></div>
+  <span id="status-text">Conectando...</span>
+  <span style="margin-left:auto;color:var(--teal);font-weight:700" id="attendee-count">0 conectados</span>
+</div>
+
+<div class="grid">
+  <!-- LEFT: Setup -->
+  <div>
+    <div class="card" id="setup-card">
+      <h2>📋 Configurar Evento</h2>
+      <label>Nombre del Evento</label>
+      <input id="ev-name" placeholder="Ej: Asamblea General 2026"/>
+      <label>Preguntas</label>
+      <div class="q-list" id="q-list"></div>
+      <button class="btn-add" onclick="addQuestion()">+ Agregar pregunta</button>
+      <input id="new-q" placeholder="Escribe la pregunta aquí..." style="margin-bottom:8px"/>
+      <button class="btn btn-accent" onclick="saveAndStart()">🚀 Iniciar Evento</button>
+    </div>
+
+    <!-- QR Card -->
+    <div class="card" style="margin-top:16px;display:none" id="qr-card">
+      <h2>📲 QR para Asistentes</h2>
+      <div id="qr-box"></div>
+      <p style="text-align:center;font-size:12px;color:var(--muted);margin-top:10px">Proyecta esto en pantalla</p>
+      <input id="attendee-url" readonly style="margin-top:8px;font-size:12px;text-align:center;cursor:pointer" onclick="this.select()" />
+    </div>
+  </div>
+
+  <!-- RIGHT: Live control -->
+  <div>
+    <div class="card">
+      <h2>🎯 Control en Vivo</h2>
+      <div class="stat-row">
+        <div class="stat"><div class="stat-n" id="stat-q">—</div><div class="stat-l">Pregunta actual</div></div>
+        <div class="stat"><div class="stat-n" id="stat-votes">0</div><div class="stat-l">Votos recibidos</div></div>
+      </div>
+      <div class="current-q" id="current-q-text">Sin pregunta activa</div>
+      <div class="vote-bars" id="vote-bars">
+        <div class="vbar-row">
+          <span class="vbar-label">🔵 Sí</span>
+          <div class="vbar-track"><div class="vbar-fill" id="bar-si" style="width:0%;background:#4ecdc4"></div></div>
+          <span class="vbar-count" id="cnt-si">0</span>
+        </div>
+        <div class="vbar-row">
+          <span class="vbar-label">🔴 No</span>
+          <div class="vbar-track"><div class="vbar-fill" id="bar-no" style="width:0%;background:#e94560"></div></div>
+          <span class="vbar-count" id="cnt-no">0</span>
+        </div>
+        <div class="vbar-row">
+          <span class="vbar-label">🟡 Abst.</span>
+          <div class="vbar-track"><div class="vbar-fill" id="bar-abs" style="width:0%;background:#ffd93d"></div></div>
+          <span class="vbar-count" id="cnt-abs">0</span>
+        </div>
+      </div>
+      <div id="phase-controls" style="margin-top:16px">
+        <button class="btn btn-teal" id="btn-next" onclick="nextQuestion()" disabled>▶ Abrir siguiente pregunta</button>
+        <div class="autoclose-indicator" id="autoclose-box">
+          <span style="color:var(--muted)">Cierre automático en</span>
+          <div class="autoclose-bar-track"><div class="autoclose-bar-fill" id="ac-bar" style="width:100%"></div></div>
+          <span class="autoclose-num" id="ac-num">15</span>s
+        </div>
+        <button class="btn btn-outline" id="btn-finish" onclick="finishEvent()" disabled>🏁 Finalizar evento</button>
+        <button class="btn btn-accent btn-sm" onclick="exportExcel()" style="width:100%;margin-top:8px">📤 Exportar Excel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── State ──
+let questions = [];
+let votes = {};
+let currentIdx = -1;
+let ws;
+let attendeeBaseUrl = '';
+let presenterTimer = null;
+
+// ── WS ──
+function connect() {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  ws = new WebSocket(`${proto}://${location.host}`);
+
+  ws.onopen = () => {
+    setStatus(true);
+    ws.send(JSON.stringify({ type: 'JOIN_PRESENTER' }));
+  };
+  ws.onclose = () => { setStatus(false); setTimeout(connect, 2000); };
+  ws.onerror = () => ws.close();
+
+  ws.onmessage = ({ data }) => {
+    const msg = JSON.parse(data);
+    switch (msg.type) {
+      case 'STATE_SYNC':
+        questions = msg.state.questions || [];
+        votes = msg.state.votes || {};
+        currentIdx = msg.state.currentIdx;
+        renderQuestionList();
+        if (questions.length > 0) showQR();
+        syncLivePanel();
+        break;
+      case 'QUESTIONS_SAVED':
+        toast(`✅ Evento listo con ${msg.count} preguntas`);
+        showQR();
+        document.getElementById('btn-next').disabled = false;
+        break;
+      case 'VOTE_UPDATE':
+        votes[msg.questionIdx] = msg.votes;
+        updateBars(msg.votes, msg.total);
+        document.getElementById('stat-votes').textContent = msg.total;
+        break;
+      case 'ATTENDEE_COUNT':
+        document.getElementById('attendee-count').textContent = msg.count + ' conectados';
+        break;
+      case 'QUESTION_ENDED':
+        if (msg.idx === currentIdx) {
+          clearPresenterTimer();
+          document.getElementById('btn-next').disabled = (currentIdx + 1 >= questions.length);
+          document.getElementById('btn-finish').disabled = false;
+          if (msg.autoClose) toast('Votación cerrada automáticamente');
+        }
+        break;
+    }
+  };
+}
+
+function setStatus(ok) {
+  document.getElementById('dot').className = 'dot' + (ok ? ' connected' : '');
+  document.getElementById('status-text').textContent = ok ? 'Conectado al servidor' : 'Reconectando...';
+}
+
+// ── Question list ──
+function addQuestion() {
+  const inp = document.getElementById('new-q');
+  const text = inp.value.trim();
+  if (!text) return;
+  questions.push({ text, options: ['Sí', 'No', 'Abstención'] });
+  inp.value = '';
+  renderQuestionList();
+}
+
+document.getElementById('new-q').addEventListener('keydown', e => { if (e.key === 'Enter') addQuestion(); });
+
+function renderQuestionList() {
+  const list = document.getElementById('q-list');
+  list.innerHTML = '';
+  questions.forEach((q, i) => {
+    const div = document.createElement('div');
+    div.className = 'q-item';
+    div.innerHTML = `<span class="q-num">${i+1}</span><span style="flex:1">${q.text}</span>
+      <button class="q-del" onclick="delQ(${i})">✕</button>`;
+    list.appendChild(div);
+  });
+}
+
+function delQ(i) { questions.splice(i, 1); renderQuestionList(); }
+
+// ── Save & start ──
+function saveAndStart() {
+  const name = document.getElementById('ev-name').value.trim();
+  if (!name) { toast('Ingresa el nombre del evento'); return; }
+  if (questions.length === 0) { toast('Agrega al menos una pregunta'); return; }
+  ws.send(JSON.stringify({ type: 'SET_QUESTIONS', questions }));
+  document.getElementById('setup-card').style.opacity = '.5';
+  document.getElementById('setup-card').style.pointerEvents = 'none';
+}
+
+// ── QR ──
+function showQR() {
+  const card = document.getElementById('qr-card');
+  card.style.display = 'block';
+  // Build attendee URL
+  const base = `${location.protocol}//${location.host}`;
+  attendeeBaseUrl = `${base}/vote.html`;
+  document.getElementById('attendee-url').value = attendeeBaseUrl;
+  // Generate QR
+  const box = document.getElementById('qr-box');
+  box.innerHTML = '';
+  new QRCode(box, { text: attendeeBaseUrl, width: 150, height: 150, correctLevel: QRCode.CorrectLevel.M });
+}
+
+// ── Navigation ──
+function nextQuestion() {
+  const next = currentIdx + 1;
+  if (next >= questions.length) { toast('Ya no hay más preguntas'); return; }
+  currentIdx = next;
+  ws.send(JSON.stringify({ type: 'START_QUESTION', idx: currentIdx }));
+  syncLivePanel();
+  document.getElementById('stat-votes').textContent = '0';
+  document.getElementById('btn-next').disabled = true;
+  document.getElementById('btn-finish').disabled = true;
+  updateBars({ 'Sí': 0, 'No': 0, 'Abstención': 0 }, 0);
+  startPresenterTimer(15);
+}
+
+function startPresenterTimer(seconds) {
+  clearPresenterTimer();
+  const box = document.getElementById('autoclose-box');
+  const bar = document.getElementById('ac-bar');
+  const num = document.getElementById('ac-num');
+  
+  box.style.display = 'flex';
+  let remaining = seconds;
+  num.textContent = remaining;
+  bar.style.width = '100%';
+  
+  presenterTimer = setInterval(() => {
+    remaining--;
+    num.textContent = remaining;
+    bar.style.width = (remaining / seconds * 100) + '%';
+    if (remaining <= 0) {
+      clearPresenterTimer();
+    }
+  }, 1000);
+}
+
+function clearPresenterTimer() {
+  if (presenterTimer) clearInterval(presenterTimer);
+  document.getElementById('autoclose-box').style.display = 'none';
+}
+
+function closeQuestion() {
+  ws.send(JSON.stringify({ type: 'END_QUESTION' }));
+  document.getElementById('btn-close').disabled = true;
+  document.getElementById('btn-next').disabled = (currentIdx + 1 >= questions.length);
+  document.getElementById('btn-finish').disabled = false;
+  toast('Votación cerrada');
+}
+
+function finishEvent() {
+  ws.send(JSON.stringify({ type: 'FINISH_EVENT' }));
+  document.getElementById('btn-finish').disabled = true;
+  toast('Evento finalizado');
+}
+
+function syncLivePanel() {
+  const q = questions[currentIdx];
+  document.getElementById('stat-q').textContent = q ? `${currentIdx+1}/${questions.length}` : '—';
+  document.getElementById('current-q-text').textContent = q ? q.text : 'Sin pregunta activa';
+  if (votes[currentIdx]) updateBars(votes[currentIdx], 0);
+}
+
+function updateBars(v, total) {
+  const si = v['Sí'] || 0, no = v['No'] || 0, abs = v['Abstención'] || 0;
+  const max = Math.max(si, no, abs, 1);
+  document.getElementById('cnt-si').textContent = si;
+  document.getElementById('cnt-no').textContent = no;
+  document.getElementById('cnt-abs').textContent = abs;
+  document.getElementById('bar-si').style.width = (si/max*100)+'%';
+  document.getElementById('bar-no').style.width = (no/max*100)+'%';
+  document.getElementById('bar-abs').style.width = (abs/max*100)+'%';
+}
+
+// ── Excel ──
+function exportExcel() {
+  const name = document.getElementById('ev-name').value || 'HandVote';
+  const wb = XLSX.utils.book_new();
+  const info = [['Evento', name], ['Preguntas', questions.length]];
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(info), 'Info');
+  questions.forEach((q, qi) => {
+    const v = votes[qi] || { 'Sí': 0, 'No': 0, 'Abstención': 0 };
+    const total = (v['Sí']||0) + (v['No']||0) + (v['Abstención']||0);
+    const rows = [['Pregunta', q.text], ['Opción', 'Votos', '%'], ...
+      q.options.map(opt => [opt, v[opt]||0, total ? ((v[opt]||0)/total*100).toFixed(1)+'%' : '0%']),
+      ['TOTAL', total, '100%']
+    ];
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), `P${qi+1}`.substring(0,31));
+  });
+  XLSX.writeFile(wb, `HandVote_${name.replace(/[^a-zA-Z0-9]/g,'_')}_${Date.now()}.xlsx`);
+  toast('Excel descargado ✓');
+}
+
+// ── Toast ──
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+connect();
+</script>
+</body>
+</html>

@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
+  <title>HandVote — Votar</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    :root{--bg:#0d0d1a;--card:#1a1a35;--si:#4ecdc4;--no:#e94560;--abs:#ffd93d;--text:#f0f0f0;--muted:#888}
+    html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;overflow:hidden}
+    .screen{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center}
+    .screen.active{display:flex}
+
+    /* ── LOBBY ── */
+    #lobby .icon{font-size:72px;margin-bottom:20px;animation:pulse 2s infinite}
+    #lobby h1{font-size:28px;font-weight:800;color:#fff;margin-bottom:8px}
+    #lobby p{color:var(--muted);font-size:16px;line-height:1.6}
+    @keyframes pulse{0%{opacity:1}50%{opacity:.4}100%{opacity:1}}
+
+    /* ── PROGRESS STEPS ── */
+    .progress-bar{width:100%;display:flex;gap:5px;padding:0 0 4px}
+    .progress-step{flex:1;height:5px;border-radius:3px;background:rgba(255,255,255,.12);transition:background .3s}
+    .progress-step.done{background:var(--si)}
+    .progress-step.active{background:var(--no)}
+    .progress-label{font-size:12px;color:var(--muted);text-align:right;margin-bottom:14px;width:100%}
+
+    /* ── QUESTION ── */
+    #question{background:linear-gradient(160deg,#0d0d1a 0%,#1a1a2e 100%);justify-content:flex-start;padding:0}
+    .q-header{width:100%;padding:36px 20px 16px;background:rgba(0,0,0,.45)}
+    .q-badge{display:inline-block;background:var(--no);color:#fff;border-radius:20px;padding:4px 14px;font-size:12px;font-weight:800;margin-bottom:10px}
+    .q-text{font-size:19px;font-weight:800;line-height:1.35;color:#fff}
+    
+    /* ── COUNTDOWN ── */
+    .timer-wrap{width:100%;padding:12px 20px 0;display:flex;align-items:center;gap:12px}
+    .timer-circle{position:relative;width:52px;height:52px;flex-shrink:0}
+    .timer-circle svg{position:absolute;inset:0;transform:rotate(-90deg)}
+    .timer-circle circle{fill:none;stroke-width:4}
+    .timer-track{stroke:rgba(255,255,255,.1)}
+    .timer-fill{stroke:var(--si);stroke-linecap:round;transition:stroke-dashoffset .9s linear}
+    .timer-num{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:900;color:#fff}
+    .timer-msg{font-size:13px;color:var(--muted);flex:1}
+    .timer-msg strong{color:var(--text)}
+    .timer-bar-track{flex:1;height:5px;background:rgba(255,255,255,.1);border-radius:3px;overflow:hidden}
+    .timer-bar-fill{height:100%;background:var(--si);border-radius:3px;transition:width .9s linear}
+
+    .options{display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%;padding:14px 16px 0;flex:1}
+    .option-btn{border:none;border-radius:18px;padding:0;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:800;font-size:17px;transition:transform .1s,filter .15s;min-height:110px;position:relative;overflow:hidden}
+    .option-btn:active{transform:scale(.94)}
+    .icon-big{font-size:36px;margin-bottom:6px;display:block}
+    .option-btn.si{background:var(--si);color:#000;grid-column:1}
+    .option-btn.no{background:var(--no);color:#fff;grid-column:2}
+    .option-btn.abs{background:var(--abs);color:#000;grid-column:1/-1;min-height:70px;flex-direction:row;gap:12px}
+    .option-btn.abs .icon-big{font-size:26px;margin:0}
+    .option-btn:disabled{filter:brightness(.4);transform:none!important;cursor:default}
+    .ripple{position:absolute;border-radius:50%;background:rgba(255,255,255,.3);transform:scale(0);animation:ripple .5s linear;pointer-events:none}
+    @keyframes ripple{to{transform:scale(4);opacity:0}}
+
+    /* ── VOTED ── */
+    #voted .checkmark{font-size:76px;margin-bottom:18px;animation:pop .4s cubic-bezier(.175,.885,.32,1.275)}
+    @keyframes pop{from{transform:scale(0)}to{transform:scale(1)}}
+    #voted h2{font-size:22px;font-weight:800;color:#fff;margin-bottom:10px}
+    #voted .chosen{font-size:30px;font-weight:900;margin-bottom:8px}
+    #voted .next-hint{color:var(--muted);font-size:14px;margin-top:6px}
+    .voted-progress{width:100%;max-width:300px;margin:20px auto 0}
+
+    /* ── WAITING ── */
+    #waiting .icon{font-size:60px;margin-bottom:14px;animation:pulse 2s infinite}
+    #waiting h2{font-size:20px;font-weight:800;margin-bottom:8px}
+    #waiting p{color:var(--muted);font-size:14px}
+
+    /* ── FINISHED ── */
+    #finished{background:linear-gradient(160deg,#0d0d1a,#1a2e1a)}
+    #finished .icon{font-size:88px;margin-bottom:20px;animation:pop .5s cubic-bezier(.175,.885,.32,1.275)}
+    #finished h2{font-size:28px;font-weight:900;margin-bottom:12px;background:linear-gradient(135deg,var(--si),#fff);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+    #finished p{color:var(--muted);font-size:16px;line-height:1.6;max-width:300px}
+    .finished-badge{display:inline-block;background:rgba(78,205,196,.15);border:1px solid rgba(78,205,196,.3);color:var(--si);border-radius:20px;padding:6px 18px;font-size:13px;font-weight:700;margin-top:20px}
+  </style>
+</head>
+<body>
+
+<!-- LOBBY -->
+<div id="lobby" class="screen active">
+  <div class="icon">🎤</div>
+  <h1>HandVote</h1>
+  <p>Conectando con el evento...<br/>El presentador activará las preguntas pronto.</p>
+</div>
+
+<!-- QUESTION -->
+<div id="question" class="screen">
+  <div class="q-header">
+    <!-- Progress steps -->
+    <div class="progress-bar" id="progress-steps"></div>
+    <div class="progress-label" id="progress-label">Pregunta 1 de 1</div>
+    <div class="q-badge" id="q-badge">PREGUNTA 1</div>
+    <div class="q-text" id="q-text">—</div>
+  </div>
+
+  <!-- Countdown timer -->
+  <div class="timer-wrap">
+    <div class="timer-circle">
+      <svg viewBox="0 0 52 52">
+        <circle class="timer-track" cx="26" cy="26" r="22"/>
+        <circle class="timer-fill" id="timer-arc" cx="26" cy="26" r="22"
+          stroke-dasharray="138.2" stroke-dashoffset="0"/>
+      </svg>
+      <div class="timer-num" id="timer-num">15</div>
+    </div>
+    <div style="flex:1">
+      <div class="timer-bar-track"><div class="timer-bar-fill" id="timer-bar" style="width:100%"></div></div>
+      <div class="timer-msg" style="margin-top:5px"><strong id="timer-text">15 segundos para votar</strong></div>
+    </div>
+  </div>
+
+  <div class="options">
+    <button class="option-btn si" id="btn-si" onclick="vote('Sí', this)">
+      <span class="icon-big">🔵</span>SÍ
+    </button>
+    <button class="option-btn no" id="btn-no" onclick="vote('No', this)">
+      <span class="icon-big">🔴</span>NO
+    </button>
+    <button class="option-btn abs" id="btn-abs" onclick="vote('Abstención', this)">
+      <span class="icon-big">🟡</span>ME ABSTENGO
+    </button>
+  </div>
+</div>
+
+<!-- VOTED -->
+<div id="voted" class="screen">
+  <div class="checkmark">✅</div>
+  <h2>¡Voto registrado!</h2>
+  <div class="chosen" id="chosen-text"></div>
+  <div class="next-hint">Espera la siguiente pregunta...</div>
+  <div class="voted-progress">
+    <div class="progress-bar" id="voted-steps"></div>
+    <div class="progress-label" id="voted-label"></div>
+  </div>
+</div>
+
+<!-- WAITING (ran out of time without voting) -->
+<div id="waiting" class="screen">
+  <div class="icon">⏳</div>
+  <h2>Tiempo agotado</h2>
+  <p>No registraste un voto esta ronda.<br/>Espera la siguiente pregunta.</p>
+</div>
+
+<!-- FINISHED -->
+<div id="finished" class="screen">
+  <div class="icon">🎉</div>
+  <h2>¡Muchas gracias!</h2>
+  <p>Tu participación fue registrada correctamente.<br/>El evento ha finalizado.</p>
+  <div class="finished-badge">✓ Votación completada</div>
+</div>
+
+<script>
+// ── State ──
+const attendeeId = 'att_' + Math.random().toString(36).slice(2);
+let currentQIdx = -1;
+let totalQ = 1;
+let hasVotedThisRound = false;
+let ws;
+let countdownTimer = null;
+let remainingSeconds = 15;
+const CIRCUMFERENCE = 138.2; // 2*pi*22
+
+// ── Screens ──
+function show(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+// ── Progress Steps ──
+function renderSteps(containerId, currentIdx, total) {
+  const el = document.getElementById(containerId);
+  el.innerHTML = '';
+  for (let i = 0; i < total; i++) {
+    const s = document.createElement('div');
+    s.className = 'progress-step' + (i < currentIdx ? ' done' : i === currentIdx ? ' active' : '');
+    el.appendChild(s);
+  }
+}
+
+// ── Countdown ──
+function startCountdown(seconds) {
+  clearCountdown();
+  remainingSeconds = seconds;
+  updateTimerUI(seconds, seconds);
+
+  countdownTimer = setInterval(() => {
+    remainingSeconds--;
+    updateTimerUI(remainingSeconds, seconds);
+    if (remainingSeconds <= 0) {
+      clearCountdown();
+      // Disable buttons when time runs out
+      ['si','no','abs'].forEach(id => {
+        const b = document.getElementById('btn-'+id);
+        if (b) b.disabled = true;
+      });
+    }
+  }, 1000);
+}
+
+function updateTimerUI(current, total) {
+  const pct = current / total;
+  const offset = CIRCUMFERENCE * (1 - pct);
+  const arc = document.getElementById('timer-arc');
+  const num = document.getElementById('timer-num');
+  const bar = document.getElementById('timer-bar');
+  const txt = document.getElementById('timer-text');
+  if (arc) arc.style.strokeDashoffset = offset;
+  if (num) num.textContent = Math.max(0, current);
+  if (bar) bar.style.width = (pct * 100) + '%';
+  if (txt) txt.textContent = current > 0 ? `${current} segundo${current !== 1 ? 's' : ''} para votar` : 'Tiempo agotado';
+  // Color changes as time runs low
+  const color = current > 8 ? '#4ecdc4' : current > 4 ? '#ffd93d' : '#e94560';
+  if (arc) arc.style.stroke = color;
+  if (bar) bar.style.background = color;
+}
+
+function clearCountdown() {
+  if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
+}
+
+// ── WS ──
+function connect() {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  ws = new WebSocket(`${proto}://${location.host}`);
+
+  ws.onopen = () => ws.send(JSON.stringify({ type: 'JOIN_ATTENDEE', attendeeId }));
+  ws.onclose = () => setTimeout(connect, 2000);
+  ws.onerror = () => ws.close();
+
+  ws.onmessage = ({ data }) => {
+    const msg = JSON.parse(data);
+    switch (msg.type) {
+
+      case 'LOBBY':
+        show('lobby');
+        break;
+
+      case 'NEW_QUESTION':
+        currentQIdx = msg.idx;
+        totalQ = msg.total;
+        hasVotedThisRound = msg.alreadyVoted || false;
+        const dur = msg.duration || 15;
+
+        document.getElementById('q-badge').textContent = `PREGUNTA ${msg.idx + 1} DE ${msg.total}`;
+        document.getElementById('q-text').textContent = msg.question.text;
+        renderSteps('progress-steps', msg.idx, msg.total);
+        document.getElementById('progress-label').textContent = `Pregunta ${msg.idx + 1} de ${msg.total}`;
+
+        ['si','no','abs'].forEach(id => {
+          const b = document.getElementById('btn-'+id);
+          if (b) b.disabled = false;
+        });
+
+        if (hasVotedThisRound) {
+          clearCountdown();
+          renderSteps('voted-steps', msg.idx, msg.total);
+          document.getElementById('voted-label').textContent = `Pregunta ${msg.idx + 1} de ${msg.total}`;
+          show('voted');
+        } else {
+          startCountdown(dur);
+          show('question');
+        }
+        break;
+
+      case 'QUESTION_ENDED':
+        clearCountdown();
+        if (!hasVotedThisRound) {
+          show('waiting');
+        }
+        // If they voted they stay on #voted screen
+        break;
+
+      case 'VOTE_CONFIRMED': {
+        clearCountdown();
+        const opts = { 'Sí': '🔵 SÍ', 'No': '🔴 NO', 'Abstención': '🟡 ABSTENCIÓN' };
+        document.getElementById('chosen-text').textContent = opts[msg.option] || msg.option;
+        document.getElementById('chosen-text').style.color =
+          msg.option === 'Sí' ? '#4ecdc4' : msg.option === 'No' ? '#e94560' : '#ffd93d';
+        renderSteps('voted-steps', currentQIdx, totalQ);
+        document.getElementById('voted-label').textContent =
+          currentQIdx + 1 < totalQ
+            ? `Quedan ${totalQ - currentQIdx - 1} pregunta${totalQ - currentQIdx - 1 !== 1 ? 's' : ''} más`
+            : '¡Última pregunta respondida!';
+        hasVotedThisRound = true;
+        show('voted');
+        break;
+      }
+
+      case 'ALREADY_VOTED':
+        clearCountdown();
+        hasVotedThisRound = true;
+        show('voted');
+        break;
+
+      case 'EVENT_FINISHED':
+        clearCountdown();
+        show('finished');
+        break;
+    }
+  };
+}
+
+// ── Vote ──
+function vote(option, btn) {
+  if (hasVotedThisRound || btn.disabled) return;
+  // Ripple
+  const ripple = document.createElement('span');
+  ripple.className = 'ripple';
+  ripple.style.cssText = `width:200px;height:200px;left:${btn.clientWidth/2-100}px;top:${btn.clientHeight/2-100}px`;
+  btn.appendChild(ripple);
+  setTimeout(() => ripple.remove(), 600);
+  // Disable immediately
+  ['si','no','abs'].forEach(id => { const b = document.getElementById('btn-'+id); if(b) b.disabled = true; });
+  ws.send(JSON.stringify({ type: 'VOTE', attendeeId, option, questionIdx: currentQIdx }));
+}
+
+connect();
+</script>
+</body>
+</html>
